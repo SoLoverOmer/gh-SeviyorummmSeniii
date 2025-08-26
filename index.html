@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kalpler Bir Olsun</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Times New Roman', Times, serif;
+            overflow: hidden;
+            background-color: #fce4ec;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            transition: background-color 1s ease-in-out;
+        }
+
+        #app {
+            text-align: center;
+            width: 100%;
+        }
+
+        .main-screen {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            height: 100vh;
+            transition: opacity 0.5s ease-in-out;
+        }
+
+        #kalpler-bir-olsun {
+            font-size: 4em;
+            color: #b71c1c;
+            font-family: 'Monotype Corsiva', cursive;
+            margin-top: -100px;
+        }
+
+        #sevgi-mesaji {
+            font-size: 1.5em;
+            color: #b71c1c;
+            margin-top: 20px;
+            font-family: 'Monotype Corsiva', cursive;
+        }
+
+        #play-button {
+            padding: 15px 30px;
+            font-size: 1.5em;
+            font-family: 'Monotype Corsiva', cursive;
+            cursor: pointer;
+            border: 2px solid #b71c1c;
+            border-radius: 50px;
+            background-color: #f8bbd0;
+            color: #b71c1c;
+            transition: transform 0.2s, background-color 0.2s;
+            margin-top: 50px;
+        }
+
+        #play-button:hover {
+            transform: scale(1.1);
+            background-color: #e57373;
+            color: #fff;
+        }
+
+        .heart-emoji {
+            animation: pulse 1.5s infinite;
+            display: inline-block;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        .game-container {
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            position: relative;
+            height: 100vh;
+            opacity: 0;
+            transition: opacity 1s ease-in-out;
+        }
+
+        .game-container.visible {
+            display: flex;
+            opacity: 1;
+        }
+
+        canvas {
+            border: 2px dashed #e57373;
+            border-radius: 15px;
+            background-color: #fff;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            touch-action: manipulation;
+            max-width: 90%;
+            max-height: 80vh;
+        }
+
+        #instruction {
+            margin-top: 20px;
+            font-size: 1.5em;
+            color: #b71c1c;
+            font-family: 'Monotype Corsiva', cursive;
+        }
+
+        /* Yeni kalp düşüşü animasyonu */
+        .falling-heart {
+            position: absolute;
+            animation: fall linear forwards;
+            opacity: 0;
+        }
+
+        @keyframes fall {
+            0% {
+                transform: translateY(-500px) scale(0.5); /* Daha yüksekten başla */
+                opacity: 0;
+            }
+            20% {
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(100vh) scale(1.2); /* Ekranın altına düş */
+                opacity: 0;
+            }
+        }
+
+        /* Mevcut patlama kalpleri için */
+        .explosion-heart {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            animation: explode-out linear forwards;
+        }
+
+        @keyframes explode-out {
+            to {
+                transform: translate(var(--x), var(--y));
+                opacity: 0;
+            }
+        }
+
+        #finalMessage {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: 'Monotype Corsiva', cursive;
+            color: #b71c1c;
+            font-size: 3em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+            opacity: 0;
+            transition: opacity 1s ease-in-out;
+            width: 90%;
+            text-align: center;
+        }
+
+        #restartButtonContainer {
+            margin-top: 20px;
+            display: none;
+        }
+
+        #closeGameButton {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 2em;
+            color: #b71c1c;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+        }
+
+        #heart-gif {
+            width: 150px;
+            height: 150px;
+            margin-top: 20px;
+            background-size: contain;
+            background-repeat: no-repeat;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="main-screen">
+            <h1 id="kalpler-bir-olsun">KALPLER BİR OLSUN💖</h1>
+            <h2 id="sevgi-mesaji">KURBAN OLDUĞUM 💕</h2>
+            <button id="play-button">Oynamaya Başla</button>
+        </div>
+
+        <div class="game-container" id="game-container">
+            <span id="closeGameButton">&times;</span>
+            <h2 id="instruction">Ekrana dokunarak birleştir<span class="heart-emoji">💓</span></h2>
+            <canvas id="gameCanvas"></canvas>
+        </div>
+
+        <div id="finalMessage">
+            Seviyorummm Seniii 💞
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', (event) => {
+            const playButton = document.getElementById('play-button');
+            const mainScreen = document.querySelector('.main-screen');
+            const gameContainer = document.getElementById('game-container');
+            const gameCanvas = document.getElementById('gameCanvas');
+            const ctx = gameCanvas.getContext('2d');
+            const closeGameButton = document.getElementById('closeGameButton');
+            const instructionText = document.getElementById('instruction');
+            const finalMessage = document.getElementById('finalMessage');
+
+            let leftHeart, rightHeart;
+            let initialHeartSize = 70;
+            let heartColor = '#e53935';
+            let touchCount = 0;
+            const maxTouches = 10;
+            let heartsMerged = false;
+            let moveDistancePerTouch;
+
+            const heartEmojis = ['💖', '💓', '💝', '💕', '💞', '💗'];
+
+            playButton.addEventListener('click', startGame);
+            closeGameButton.addEventListener('click', showMainMenu);
+
+            function showMainMenu() {
+                mainScreen.style.display = 'flex';
+                mainScreen.style.opacity = '1';
+                gameContainer.style.display = 'none';
+                gameContainer.style.opacity = '0';
+                finalMessage.style.opacity = '0';
+                closeGameButton.style.opacity = '0';
+            }
+
+            function startGame() {
+                mainScreen.style.opacity = '0';
+                setTimeout(() => {
+                    mainScreen.style.display = 'none';
+                    gameContainer.style.display = 'flex';
+                    gameContainer.style.opacity = '1';
+                    initGame();
+                }, 500);
+            }
+
+            function initGame() {
+                gameCanvas.width = Math.min(800, window.innerWidth * 0.9);
+                gameCanvas.height = Math.min(400, window.innerHeight * 0.5);
+
+                leftHeart = { x: gameCanvas.width * 0.2, y: gameCanvas.height / 2, size: initialHeartSize, color: heartColor, currentAnimationSize: initialHeartSize };
+                rightHeart = { x: gameCanvas.width * 0.8, y: gameCanvas.height / 2, size: initialHeartSize, color: heartColor, currentAnimationSize: initialHeartSize };
+                
+                touchCount = 0;
+                heartsMerged = false;
+                
+                const totalMoveDistance = (rightHeart.x - leftHeart.x);
+                moveDistancePerTouch = (totalMoveDistance / 2) / maxTouches;
+                
+                instructionText.innerHTML = `Ekrana dokunarak birleştir<span class="heart-emoji">💗</span>`;
+                finalMessage.style.opacity = '0';
+                document.body.style.backgroundColor = '#fce4ec';
+                
+                gameCanvas.addEventListener('mousedown', handleClick);
+                gameCanvas.addEventListener('touchstart', handleClick);
+                
+                closeGameButton.style.opacity = 1;
+                draw();
+            }
+
+            function drawHeart(x, y, size, color) {
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.moveTo(x, y + size / 4);
+                ctx.bezierCurveTo(x + size / 2, y - size / 2, x + size, y, x, y + size);
+                ctx.bezierCurveTo(x - size, y, x - size / 2, y - size / 2, x, y + size / 4);
+                ctx.closePath();
+                ctx.fill();
+                
+                const gradient = ctx.createRadialGradient(x, y + size / 2, 0, x, y + size / 2, size * 1.5);
+                gradient.addColorStop(0, 'rgba(255, 0, 0, 0.4)');
+                gradient.addColorStop(0.5, 'rgba(255, 0, 0, 0.2)');
+                gradient.addColorStop(1, 'rgba(255, 0, 0, 0)');
+                
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(x, y + size / 2, size * 1.2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            function draw() {
+                ctx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+                if (!heartsMerged && leftHeart && rightHeart) {
+                    drawHeart(leftHeart.x, leftHeart.y, leftHeart.currentAnimationSize, leftHeart.color);
+                    drawHeart(rightHeart.x, rightHeart.y, rightHeart.currentAnimationSize, rightHeart.color);
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(leftHeart.x + leftHeart.currentAnimationSize * 0.7, leftHeart.y + leftHeart.currentAnimationSize * 0.7);
+                    ctx.lineTo(rightHeart.x - rightHeart.currentAnimationSize * 0.7, rightHeart.y + rightHeart.currentAnimationSize * 0.7);
+                    ctx.strokeStyle = '#a10a0a';
+                    ctx.lineWidth = 4;
+                    ctx.stroke();
+                }
+            }
+
+            function animateHeartBeat(heart) {
+                let startSize = heart.size;
+                let targetSize = heart.size * 1.1;
+                let animationDuration = 150;
+                let startTime = null;
+
+                function frame(timestamp) {
+                    if (!startTime) startTime = timestamp;
+                    const progress = (timestamp - startTime) / animationDuration;
+                    if (progress < 1) {
+                        heart.currentAnimationSize = startSize + (targetSize - startSize) * progress;
+                        draw();
+                        requestAnimationFrame(frame);
+                    } else if (progress < 2) {
+                        heart.currentAnimationSize = targetSize - (targetSize - startSize) * (progress - 1);
+                        draw();
+                        requestAnimationFrame(frame);
+                    } else {
+                        heart.currentAnimationSize = startSize;
+                        draw();
+                    }
+                }
+                requestAnimationFrame(frame);
+            }
+
+            function animateMerge() {
+                let currentSize = initialHeartSize;
+                const targetSize = initialHeartSize * 2.7;
+                const centerX = gameCanvas.width / 2;
+                const centerY = gameCanvas.height / 2;
+                const animationDuration = 1500;
+                let startTime = null;
+
+                function mergeFrame(timestamp) {
+                    if (!startTime) startTime = timestamp;
+                    const progress = (timestamp - startTime) / animationDuration;
+                    ctx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+                    if (progress < 1) {
+                        currentSize = initialHeartSize + (targetSize - initialHeartSize) * progress;
+                        drawHeart(centerX, centerY, currentSize, heartColor);
+                        requestAnimationFrame(mergeFrame);
+                    } else {
+                        drawHeart(centerX, centerY, targetSize, heartColor);
+                        gameCanvas.addEventListener('mousedown', handleFinalClick);
+                        gameCanvas.addEventListener('touchstart', handleFinalClick);
+                    }
+                }
+                requestAnimationFrame(mergeFrame);
+            }
+
+            // Kalp düşürme fonksiyonu (miktarı 20 katına çıkarıldı)
+            function createFallingHearts() {
+                const numHeartsPerClick = 80; // Her tıklamada düşecek kalp sayısı
+                for (let i = 0; i < numHeartsPerClick; i++) {
+                    const heart = document.createElement('div');
+                    heart.innerHTML = heartEmojis[Math.floor(Math.random() * heartEmojis.length)];
+                    heart.classList.add('falling-heart');
+                    
+                    const startX = Math.random() * window.innerWidth;
+                    heart.style.left = startX + 'px';
+                    heart.style.animationDuration = (Math.random() * 2 + 3) + 's';
+                    heart.style.fontSize = (Math.random() * 1.5 + 1) + 'em';
+                    
+                    document.body.appendChild(heart);
+                    
+                    heart.addEventListener('animationend', () => heart.remove());
+                }
+            }
+
+            // Mevcut patlama efektini koruyan fonksiyon
+            function createHeartExplosion(x, y) {
+                const numHearts = Math.floor(Math.random() * 600) + 900;
+                let heartsCreated = 0;
+
+                function generateHeartsBatch() {
+                    const batchSize = 50;
+                    for (let i = 0; i < batchSize && heartsCreated < numHearts; i++) {
+                        const angle = Math.random() * Math.PI * 2;
+                        const distance = Math.random() * Math.max(window.innerWidth, window.innerHeight) * 1.5 + 400;
+                        const duration = Math.random() * 2.5 + 2.5;
+                        const fontSize = Math.random() * 2.5 + 1.5;
+                        const emoji = heartEmojis[Math.floor(Math.random() * heartEmojis.length)];
+                        
+                        const heart = document.createElement('div');
+                        heart.innerHTML = emoji;
+                        heart.classList.add('explosion-heart');
+                        heart.style.left = x + 'px';
+                        heart.style.top = y + 'px';
+                        heart.style.setProperty('--x', Math.cos(angle) * distance + 'px');
+                        heart.style.setProperty('--y', Math.sin(angle) * distance + 'px');
+                        heart.style.animationDuration = duration + 's';
+                        heart.style.fontSize = fontSize + 'em';
+                        document.body.appendChild(heart);
+                        
+                        heart.addEventListener('animationend', () => heart.remove());
+                        heartsCreated++;
+                    }
+                    if (heartsCreated < numHearts) {
+                        requestAnimationFrame(generateHeartsBatch);
+                    }
+                }
+                requestAnimationFrame(generateHeartsBatch);
+            }
+            
+            function handleFinalClick() {
+                const x = window.innerWidth / 2;
+                const y = window.innerHeight / 2;
+                
+                createHeartExplosion(x, y);
+                
+                document.body.style.backgroundColor = '#ffffff';
+                gameContainer.style.opacity = '0';
+                finalMessage.style.opacity = '1';
+
+                gameCanvas.removeEventListener('mousedown', handleFinalClick);
+                gameCanvas.removeEventListener('touchstart', handleFinalClick);
+
+                setTimeout(() => {
+                    showMainMenu();
+                }, 3000);
+            }
+
+            function handleClick(event) {
+                if (heartsMerged) {
+                    return;
+                }
+                
+                // Her tıklamada kalp yağmuru başlat
+                createFallingHearts();
+
+                leftHeart.x += moveDistancePerTouch;
+                rightHeart.x -= moveDistancePerTouch;
+                
+                animateHeartBeat(leftHeart);
+                animateHeartBeat(rightHeart);
+                
+                touchCount++;
+                if (touchCount < maxTouches) {
+                    instructionText.innerHTML = `Kalpleri birleştirmek için ${maxTouches - touchCount} dokunuş kaldı<span class="heart-emoji">🤍</span>`;
+                } else {
+                    heartsMerged = true;
+                    instructionText.innerHTML = 'KURBAN OLDUĞUM<span class="heart-emoji">💗</span>';
+                    setTimeout(() => {
+                        animateMerge();
+                    }, 300);
+                }
+                event.preventDefault();
+            }
+        });
+    </script>
+</body>
+</html>
